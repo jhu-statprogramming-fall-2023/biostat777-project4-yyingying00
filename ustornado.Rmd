@@ -1,0 +1,521 @@
+---
+title: "US Tornado"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(tidyverse)
+library(here)
+library(DT)
+library(usmap)
+library(showtext)
+font_add_google("Ubuntu")
+font_labels <- "Ubuntu"
+showtext_auto()
+if (!file.exists(here("data", "tuesdata_tornados.rda"))) {
+    tuesdata <- tidytuesdayR::tt_load("2023-05-16")
+    tornados <- tuesdata$tornados
+
+    # save the files to rda objects
+    save(tornados, file = here("data", "tuesdata_tornados.rda"))
+}
+
+load(here("data", "tuesdata_tornados.rda"))
+data <- tornados
+```
+
+# About
+
+## Column {data-width="300"}
+
+### **Purpose**
+
+This dashboard was created for two purposes: 
+
+1. To understand the tornado trends happened through the years from 1950 to 2021
+
+2. To practice building dashboards with **Shiny** using **R** for the BSPH course Statistical Programming Paradigms and Workflows (140.777)   
+
+### **Data source**
+
+The source data comes from NOAA's National Weather Service Storm Prediction Center [Severe Weather Maps, Graphics, and Data Page](https://www.spc.noaa.gov/wcm/#data), The data dictionary can be found [here](https://github.com/rfordatascience/tidytuesday/blob/master/data/2023/2023-05-16/readme.md).
+
+## Column {data-width="700"}
+
+### **A video explaining this dashboard**
+
+```{r}
+
+```
+
+# Data
+
+### **About the data** {data-height="130"}
+
+The Tornado dataset contains basic information about each recorded tornado happened in the US between 1950 to 2021. The ID, date, location, magnitude, caused injuries, death, and property loss, infected area in size or in state numbers of the tornadoes are included. Let's give a glimpse of the data:
+
+### **Data table** {data-height="870"}
+```{r}
+show <- data[, c("om","date","time","tz","st","mag","inj","fat","loss","ns")] %>% 
+  arrange(om) %>% 
+  head(100) %>% 
+  setNames(c('ID','Date','Time','Time zone','State','Magnitude','Injuries','Death','Property loss',
+                    'Number of state affected')) 
+
+renderDataTable({
+  datatable(show)})
+```
+
+# Tornadoes through the years 
+
+## Column {.sidebar}
+
+```{r}
+sliderInput("slider", "Year range", min = 1950, max = 2021, value = c(1950, 2021))
+```
+
+## Column
+```{r}
+filtered_data <- reactive({
+  data %>% 
+    filter(yr >= input$slider[1] & yr <= input$slider[2]) %>%
+    group_by(yr) %>%
+    count()
+})
+renderPlot({
+  ggplot(filtered_data(), aes(yr, n)) +
+    geom_line(color = "#98103E") +
+    labs(title = "Tornado through the Years",
+        subtitle = "The number of tornadoes has risen over the past seventy years",
+        x = "",
+        y = "Number of tornadoes") +
+    theme_minimal() +
+    theme(text = element_text(family = font_labels, color = 'black'),
+          plot.title = element_text(size = 40, face = "bold"),
+          plot.subtitle = element_text(size = 24),
+          axis.text.x = element_text(size = 14),  
+          axis.text.y = element_text(size = 14), 
+          panel.grid.major.x = element_blank(), 
+          panel.grid.minor.x = element_blank())
+}, height = 600)
+```
+
+
+# Tornadoes by states 
+## Columnn A
+### **Tornadoes from 1950 to 1980**
+```{r}
+# Summarise number of tornadoes by state
+tornadoes_1980 <- data %>%
+  filter(yr <= 1980) %>%
+  group_by(st) %>%
+  summarise(value = n()) %>%
+  arrange(desc(value))
+
+# Add color levels to data for plot
+tornadoes_1980 <- tornadoes_1980 %>%
+  mutate(color = case_when(value < 500 ~ "Less than 500",
+                           value <= 1000 ~ "501 - 1,000",
+                           value <= 2000 ~ "1,001 - 2,000",
+                           value <= 4000 ~ "2,001 - 4,000",
+                           value > 4000 ~ "More than 4,000",
+                           TRUE ~ "No Tornadoes"))
+
+# Arrange color levels
+tornadoes_1980$color <- fct_relevel(tornadoes_1980$color, c("More than 4,000",
+                                                        "2,001 - 4,000",
+                                                        "1,001 - 2,000",
+                                                        "501 - 1,000",
+                                                        "Less than 500"))
+# Change column name to fit the usmap setting
+names(tornadoes_1980)[1]<-"state"
+
+# Plot data
+plot_usmap(data = tornadoes_1980, values = "color", labels = FALSE) +
+  scale_fill_manual(values = c( "Less than 500" = "#ffdfa4",
+                                "501 - 1,000" = "#FFC457",
+                                "1,001 - 2,000"= "#E4683F",
+                                "2,001 - 4,000"= "#C03434",
+                                "More than 4,000" = "#98103E",
+                                "No Tornadoes" = "grey70")) +
+  labs(title = "Number of Tornadoes by State",
+      subtitle = "Period 1950 - 1980 | Data: NOAA",
+      fill = "color",
+      x = "", y = "") +
+  theme(plot.title = element_text(margin = margin(b = 20, t=15), 
+                                family = font_labels, color = "#22222b",
+                                face = "bold", size = 20, hjust = 0.5),
+        plot.subtitle = element_text(family = font_labels,
+                                    color = "#22222b", size = 10, 
+                                    hjust = 0.5, vjust = 4),
+        legend.position = "bottom",
+        legend.title = element_blank(),
+        legend.text=element_text(family = font_labels, size = 8), 
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title.x=element_blank()) +
+  guides(fill = guide_legend(
+    label.position = "top", family = font_labels, color = "#808080", nrow = 1,
+    keywidth = 2, keyheight = 0.5))
+```
+
+## Columnn B
+### **Tornadoes from 1950 to 2021**
+```{r}
+# Summarise number of tornadoes by state
+tornadoes_2021 <- data %>%
+  group_by(st) %>%
+  summarise(value = n()) %>%
+  arrange(desc(value))
+
+# Add color levels to data for plot
+tornadoes_2021 <- tornadoes_2021 %>%
+  mutate(color = case_when(value < 500 ~ "Less than 500",
+                           value <= 1000 ~ "501 - 1,000",
+                           value <= 2000 ~ "1,001 - 2,000",
+                           value <= 4000 ~ "2,001 - 4,000",
+                           value > 4000 ~ "More than 4,000",
+                           TRUE ~ "No Tornadoes"))
+
+# Arrange color levels
+tornadoes_2021$color <- fct_relevel(tornadoes_2021$color, c("More than 4,000",
+                                                        "2,001 - 4,000",
+                                                        "1,001 - 2,000",
+                                                        "501 - 1,000",
+                                                        "Less than 500"))
+# Change column name to fit the usmap setting
+names(tornadoes_2021)[1]<-"state"
+
+# Plot data
+plot_usmap(data = tornadoes_2021, values = "color", labels = FALSE) +
+  scale_fill_manual(values = c( "Less than 500" = "#ffdfa4",
+                                "501 - 1,000" = "#FFC457",
+                                "1,001 - 2,000"= "#E4683F",
+                                "2,001 - 4,000"= "#C03434",
+                                "More than 4,000" = "#98103E",
+                                "No Tornadoes" = "grey70")) +
+  labs(title = "Number of Tornadoes by State",
+      subtitle = "Period 1950 - 2021 | Data: NOAA",
+      fill = "color",
+      x = "", y = "") +
+  theme(plot.title = element_text(margin = margin(b = 20, t=15), 
+                                family = font_labels, color = "#22222b",
+                                face = "bold", size = 20, hjust = 0.5),
+        plot.subtitle = element_text(family = font_labels,
+                                    color = "#22222b", size = 10, 
+                                    hjust = 0.5, vjust = 4),
+        legend.position = "bottom",
+        legend.title = element_blank(),
+        legend.text=element_text(family = font_labels, size = 8), 
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title.x=element_blank()) +
+  guides(fill = guide_legend(
+    label.position = "top", family = font_labels, color = "#808080", nrow = 1,
+    keywidth = 2, keyheight = 0.5))
+```
+
+
+# Tornadoes by month
+
+## Column {.sidebar}
+
+**Choose two states to see the different tornado distribution by month.**
+
+```{r}
+selectInput("state1", "Choose state 1:", 
+            choices = list("AK"="AK", "AL"="AL", "AR"="AR", "AZ"="AZ", "CA"="CA", "CO"="CO", 
+                           "CT"="CT", "DC"="DC", "DE"="DE", "FL"="FL", "GA"="GA", "HI"="HI",
+                           "IA"="IA", "ID"="ID", "IL"="IL", "IN"="IN", "KS"="KS", "KY"="KY",
+                           "LA"="LA", "MA"="MA", "MD"="MD", "ME"="ME", "MI"="MI", "MN"="MN",
+                           "MO"="MO", "MS"="MS", "MT"="MT", "NC"="NC", "ND"="ND", "NE"="NE",
+                           "NH"="NH", "NJ"="NJ", "NM"="NM", "NV"="NV", "NY"="NY", "OH"="OH",
+                           "OK"="OK", "OR"="OR", "PA"="PA", "PR"="PR", "RI"="RI", "SC"="SC",
+                           "SD"="SD", "TN"="TN", "TX"="TX", "UT"="UT", "VA"="VA", "VI"="VI",
+                           "VT"="VT", "WA"="WA", "WI"="WI", "WV"="WV", "WY"="WY"), 
+            selected = c("TX"))
+
+selectInput("state2", "Choose state 2:", 
+            choices = list("AK"="AK", "AL"="AL", "AR"="AR", "AZ"="AZ", "CA"="CA", "CO"="CO", 
+                           "CT"="CT", "DC"="DC", "DE"="DE", "FL"="FL", "GA"="GA", "HI"="HI",
+                           "IA"="IA", "ID"="ID", "IL"="IL", "IN"="IN", "KS"="KS", "KY"="KY",
+                           "LA"="LA", "MA"="MA", "MD"="MD", "ME"="ME", "MI"="MI", "MN"="MN",
+                           "MO"="MO", "MS"="MS", "MT"="MT", "NC"="NC", "ND"="ND", "NE"="NE",
+                           "NH"="NH", "NJ"="NJ", "NM"="NM", "NV"="NV", "NY"="NY", "OH"="OH",
+                           "OK"="OK", "OR"="OR", "PA"="PA", "PR"="PR", "RI"="RI", "SC"="SC",
+                           "SD"="SD", "TN"="TN", "TX"="TX", "UT"="UT", "VA"="VA", "VI"="VI",
+                           "VT"="VT", "WA"="WA", "WI"="WI", "WV"="WV", "WY"="WY"), 
+            selected = c("AR"))
+```
+
+## Column
+### **State 1**
+```{r}
+filtered_month1 <- reactive({
+  data %>%
+    filter(st == input$state1) %>% 
+    group_by(mo) %>%
+    summarise(value = n())
+})
+
+renderPlot({
+  ggplot(filtered_month1(), aes(factor(mo), value)) +
+    geom_col(fill = "#98103E") +
+    labs(title = "Number of Tornadoes by Month",
+        caption = "Period 1950 - 2021 | Data: NOAA",
+        x = "Month",
+        y = "Number of Tornadoes") +
+    theme_minimal() +
+    theme(text = element_text(family = font_labels, color = 'black'),
+         plot.title = element_text(size = 20, face = "bold"),
+         plot.subtitle = element_text(size = 12),
+         panel.grid.major.x = element_blank(), 
+         panel.grid.minor.x = element_blank())
+}, height = 270)
+```
+
+### **State 2**
+```{r}
+filtered_month2 <- reactive({
+  data %>%
+    filter(st == input$state2) %>% 
+    group_by(mo) %>%
+    summarise(value = n())
+})
+
+renderPlot({
+  ggplot(filtered_month2(), aes(factor(mo), value)) +
+    geom_col(fill = "#98103E") +
+    labs(title = "Number of Tornadoes by Month",
+        caption = "Period 1950 - 2021 | Data: NOAA",
+        x = "Month",
+        y = "Number of Tornadoes") +
+    theme_minimal() +
+    theme(text = element_text(family = font_labels, color = 'black'),
+         plot.title = element_text(size = 20, face = "bold"),
+         plot.subtitle = element_text(size = 12),
+         panel.grid.major.x = element_blank(), 
+         panel.grid.minor.x = element_blank())
+}, height = 270)
+```
+
+
+# Yearly Damages 
+## Column A 
+### **Injury**
+```{r}
+# Summarise average fatalities by type
+yearly_tornado_inj <- data %>%
+  group_by(yr) %>%
+  summarise(n = sum(inj))
+
+# Plot data
+ggplot(yearly_tornado_inj, aes(yr, n)) +
+geom_line(color = "#98103E") +
+  labs(title = "Tornado Injuries through the Years",
+       x = "",
+       y = "Number of injuries") +
+  theme_minimal() +
+  theme(text = element_text(family = font_labels, color = 'black'),
+        plot.title = element_text(size = 20, face = "bold"),
+        plot.subtitle = element_text(size = 12),
+        panel.grid.major.x = element_blank(), 
+        panel.grid.minor.x = element_blank())
+```
+
+## Column B {.tabset}
+### **Fatality**
+```{r}
+# Summarise average fatalities by type
+yearly_tornado_fat <- data %>%
+  group_by(yr) %>%
+  summarise(n = sum(fat))
+
+# Plot data
+ggplot(yearly_tornado_fat, aes(yr, n)) +
+geom_line(color = "#98103E") +
+  labs(title = "Tornado Fatalities through the Years",
+       x = "",
+       y = "Number of fatalities") +
+  theme_minimal() +
+  theme(text = element_text(family = font_labels, color = 'black'),
+        plot.title = element_text(size = 20, face = "bold"),
+        plot.subtitle = element_text(size = 12),
+        panel.grid.major.x = element_blank(), 
+        panel.grid.minor.x = element_blank())
+```
+
+### **Property Loss**
+```{r}
+# Summarise average fatalities by type
+yearly_tornado_loss <- data %>%
+  group_by(yr) %>%
+  summarise(n = sum(loss,na.rm = TRUE))
+
+# Plot data
+ggplot(yearly_tornado_loss, aes(yr, n)) +
+geom_line(color = "#98103E") +
+  labs(title = "Tornado property loss through the Years",
+       x = "",
+       y = "Number of property loss") +
+  theme_minimal() +
+  theme(text = element_text(family = font_labels, color = 'black'),
+        plot.title = element_text(size = 20, face = "bold"),
+        plot.subtitle = element_text(size = 12),
+        panel.grid.major.x = element_blank(), 
+        panel.grid.minor.x = element_blank())
+```
+
+
+# Analysis
+## Column
+
+**Diving into US Tornado Data**  
+Questions: How many tornadoes happened through the years from 1950 to 2021? Where do tornadoes usually occur? What are the fatalities caused by tornadoes by states?
+
+
+Before we start in are main dive, lets look to see how many tornadoes were there from the time period 1950 to 2021.
+
+```{r}
+yearly_tornado <- data %>%
+  group_by(yr) %>%
+  count()
+
+ggplot(yearly_tornado, aes(yr, n)) +
+  geom_line(color = "#98103E") +
+  labs(title = "Tornado through the Years",
+      subtitle = "The number of tornadoes has risen over the past seventy years",
+      x = "",
+      y = "Number of tornadoes") +
+  theme_minimal() +
+  theme(text = element_text(family = font_labels, color = 'black'),
+        plot.title = element_text(size = 20, face = "bold"),
+        plot.subtitle = element_text(size = 12),
+        axis.text.x = element_text(size = 14),  
+        axis.text.y = element_text(size = 14), 
+        panel.grid.major.x = element_blank(), 
+        panel.grid.minor.x = element_blank())
+
+```
+
+We can see that there is a gradually increasing trend of number of tornadoes as years increase. Is this trend similar in the top 4 cities having most tornadoes?  
+
+```{r}
+# Summarise number of tornadoes by state
+tornadoes_st <- data %>%
+  group_by(st) %>%
+  summarise(value = n()) %>%
+  arrange(desc(value))
+
+renderDataTable({
+  datatable(tornadoes_st)})
+```
+
+Texas by a clear margin saw the most tornadoes in this timeframe. Kansas, Oklahoma, and Florida round out the top four. 
+
+```{r}
+yearly_tornado_top <- data %>%
+  group_by(yr, st) %>%
+  filter(st == "TX" | st == "KS" | st == "OK" | st == "FL") %>% 
+  count()
+
+  ggplot(yearly_tornado_top, aes(yr, n)) +
+    geom_line(color = "#98103E") +
+    facet_wrap(~ st, nrow = 2) +
+    labs(title = "Tornado of top cities through the Years",
+         subtitle = "Pattern of the top 4 states are different",
+         caption = "Period 1950 - 2021 | Data: NOAA",
+         x = "",
+         y = "Number of tornadoes") +
+    theme_minimal() +
+    theme(text = element_text(family = font_labels, color = 'black'),
+          plot.title = element_text(size = 20, face = "bold"),
+          plot.subtitle = element_text(size = 12),
+          panel.grid.major.x = element_blank(), 
+          panel.grid.minor.x = element_blank())
+```
+
+Texas seems to be different than the other three.
+
+```{r}
+tornadoes_st <- tornadoes_st %>%
+  mutate(color = case_when(value < 500 ~ "Less than 500",
+                           value <= 1000 ~ "501 - 1,000",
+                           value <= 2000 ~ "1,001 - 2,000",
+                           value <= 4000 ~ "2,001 - 4,000",
+                           value > 4000 ~ "More than 4,000",
+                           TRUE ~ "No Tornadoes"))
+tornadoes_st$color <- fct_relevel(tornadoes_st$color, c("More than 4,000",
+                                                        "2,001 - 4,000",
+                                                        "1,001 - 2,000",
+                                                        "501 - 1,000",
+                                                        "Less than 500"))
+names(tornadoes_st)[1]<-"state"
+plot_usmap(data = tornadoes_st, values = "color", labels = FALSE) +
+  scale_fill_manual(values = c( "Less than 500" = "#ffdfa4",
+                                "501 - 1,000" = "#FFC457",
+                                "1,001 - 2,000"= "#E4683F",
+                                "2,001 - 4,000"= "#C03434",
+                                "More than 4,000" = "#98103E",
+                                "No Tornadoes" = "grey70")) +
+  labs(title = "Number of Tornadoes by State",
+      subtitle = "Period 1950 - 2021 | Data: NOAA",
+      fill = "color",
+      x = "", y = "") +
+  theme(plot.title = element_text(margin = margin(b = 20, t=15), 
+                                family = font_labels, color = "#22222b",
+                                face = "bold", size = 25, hjust = 0.5),
+        plot.subtitle = element_text(family = font_labels,
+                                    color = "#22222b", size = 15, 
+                                    hjust = 0.5, vjust = 4),
+        legend.position = "bottom",
+        legend.title = element_blank(),
+        legend.text=element_text(family = font_labels, size = 8), 
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title.x=element_blank()) +
+  guides(fill = guide_legend(
+    label.position = "top", family = font_labels, color = "#808080", nrow = 1,
+    keywidth = 2, keyheight = 0.5))
+```
+
+Looking at the visualization:
+
+-   The Midwest and Southeast regions have seen a high amount tornadoes touch down.
+-   While the Northeast and West regions saw low levels of tornadoes.
+
+
+How do different level of tornado affect the fatality?
+```{r}
+level_fat <- data %>%
+  filter(!mag == -9)
+# make EF scale as factors
+level_fat$mag <- factor(level_fat$mag, c("0","1","2","3","4","5"))
+
+# plot
+  ggplot(level_fat, aes(mag, fat)) +
+   geom_boxplot() +
+   labs(title = "Tornado Fatalities by EF Rating",
+        subtitle = "Higher the rating, higher the fatality and larger the variance",
+        caption = "Period 1950 - 2021 | Data: NOAA",
+        x = "EF Level", y = "Fatality") +
+    theme_minimal() +
+    theme(text = element_text(family = font_labels, color = 'black'),
+          plot.title = element_text(size = 20, face = "bold"),
+          plot.subtitle = element_text(size = 12),
+          panel.grid.major.x = element_blank())
+
+```
+
+**Conclusion**
+
+From the analysis of the tornado dataset, we found there are 67,937 tornadoes touch down in the United States from 1950 through 2021. The Midwest and Southeast are impacted the most by tornadoes. In addition, there was 6,118 fatalities caused by tornadoes, and EF5 averaged the hisghest amount of fatalities by EF rating. 
+
