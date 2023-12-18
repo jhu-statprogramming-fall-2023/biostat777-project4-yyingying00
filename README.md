@@ -1,3 +1,3 @@
 # Yingying Yu
 
-Link to dashboard: 
+Link to dashboard: http://yyingying00.shinyapps.io/ustornado
