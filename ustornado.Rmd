@@ -17,16 +17,13 @@ library(showtext)
 font_add_google("Ubuntu")
 font_labels <- "Ubuntu"
 showtext_auto()
-if (!file.exists(here("data", "tuesdata_tornados.rda"))) {
-    tuesdata <- tidytuesdayR::tt_load("2023-05-16")
-    tornados <- tuesdata$tornados
+if (!file.exists(here("data", "tuesdata_tornados.RDS"))) {
+  tornados <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-05-16/tornados.csv')
 
-    # save the files to rda objects
-    save(tornados, file = here("data", "tuesdata_tornados.rda"))
+  saveRDS(tornados, file = here("data", "tuesdata_tornados.RDS"))
 }
 
-load(here("data", "tuesdata_tornados.rda"))
-data <- tornados
+tornados <- readRDS(here("data", "tuesdata_tornados.RDS"))
 ```
 
 # About
@@ -53,9 +50,7 @@ This dashboard was made by Yingying Yu, the source code can be found [here](http
 
 ### **A video explaining this dashboard**
 
-```{r}
-
-```
+<iframe width="700" height="480" src="https://www.youtube.com/embed/p9EB7QUGtx8" frameborder="0" allowfullscreen></iframe>
 
 # Data
 
@@ -65,7 +60,7 @@ The Tornado dataset contains basic information about each recorded tornado happe
 
 ### **Data table** {data-height="870"}
 ```{r}
-show <- data[, c("om","date","time","tz","st","mag","inj","fat","loss","ns")] %>% 
+show <- tornados[, c("om","date","time","tz","st","mag","inj","fat","loss","ns")] %>% 
   arrange(om) %>% 
   head(100) %>% 
   setNames(c('ID','Date','Time','Time zone','State','Magnitude','Injuries','Death','Property loss',
@@ -86,7 +81,7 @@ sliderInput("slider", "Year range", min = 1950, max = 2021, value = c(1950, 2021
 ## Column
 ```{r}
 filtered_data <- reactive({
-  data %>% 
+  tornados %>% 
     filter(yr >= input$slider[1] & yr <= input$slider[2]) %>%
     group_by(yr) %>%
     count()
@@ -115,7 +110,7 @@ renderPlot({
 ### **Tornadoes from 1950 to 1980**
 ```{r}
 # Summarise number of tornadoes by state
-tornadoes_1980 <- data %>%
+tornadoes_1980 <- tornados %>%
   filter(yr <= 1980) %>%
   group_by(st) %>%
   summarise(value = n()) %>%
@@ -173,7 +168,7 @@ plot_usmap(data = tornadoes_1980, values = "color", labels = FALSE) +
 ### **Tornadoes from 1950 to 2021**
 ```{r}
 # Summarise number of tornadoes by state
-tornadoes_2021 <- data %>%
+tornadoes_2021 <- tornados %>%
   group_by(st) %>%
   summarise(value = n()) %>%
   arrange(desc(value))
@@ -263,7 +258,7 @@ selectInput("state2", "Choose state 2:",
 ### **State 1**
 ```{r}
 filtered_month1 <- reactive({
-  data %>%
+  tornados %>%
     filter(st == input$state1) %>% 
     group_by(mo) %>%
     summarise(value = n())
@@ -288,7 +283,7 @@ renderPlot({
 ### **State 2**
 ```{r}
 filtered_month2 <- reactive({
-  data %>%
+  tornados %>%
     filter(st == input$state2) %>% 
     group_by(mo) %>%
     summarise(value = n())
@@ -316,7 +311,7 @@ renderPlot({
 ### **Injury**
 ```{r}
 # Summarise average fatalities by type
-yearly_tornado_inj <- data %>%
+yearly_tornado_inj <- tornados %>%
   group_by(yr) %>%
   summarise(n = sum(inj))
 
@@ -338,7 +333,7 @@ geom_line(color = "#98103E") +
 ### **Fatality**
 ```{r}
 # Summarise average fatalities by type
-yearly_tornado_fat <- data %>%
+yearly_tornado_fat <- tornados %>%
   group_by(yr) %>%
   summarise(n = sum(fat))
 
@@ -359,7 +354,7 @@ geom_line(color = "#98103E") +
 ### **Property Loss**
 ```{r}
 # Summarise average fatalities by type
-yearly_tornado_loss <- data %>%
+yearly_tornado_loss <- tornados %>%
   group_by(yr) %>%
   summarise(n = sum(loss,na.rm = TRUE))
 
@@ -388,7 +383,7 @@ Questions: How many tornadoes happened through the years from 1950 to 2021? Wher
 Before we start in are main dive, lets look to see how many tornadoes were there from the time period 1950 to 2021.
 
 ```{r}
-yearly_tornado <- data %>%
+yearly_tornado <- tornados %>%
   group_by(yr) %>%
   count()
 
@@ -414,7 +409,7 @@ We can see that there is a gradually increasing trend of number of tornadoes as 
 Texas by a clear margin saw the most tornadoes in this timeframe. Kansas, Oklahoma, and Florida round out the top four. 
 
 ```{r}
-yearly_tornado_top <- data %>%
+yearly_tornado_top <- tornados %>%
   group_by(yr, st) %>%
   filter(st == "TX" | st == "KS" | st == "OK" | st == "FL") %>% 
   count()
@@ -438,6 +433,11 @@ yearly_tornado_top <- data %>%
 Texas seems to be different than the other three.
 
 ```{r}
+tornadoes_st <- tornados %>%
+  group_by(st) %>%
+  summarise(value = n()) %>%
+  arrange(desc(value))
+
 tornadoes_st <- tornadoes_st %>%
   mutate(color = case_when(value < 500 ~ "Less than 500",
                            value <= 1000 ~ "501 - 1,000",
@@ -488,7 +488,7 @@ Looking at the visualization:
 
 How do different level of tornado affect the fatality?
 ```{r}
-level_fat <- data %>%
+level_fat <- tornados %>%
   filter(!mag == -9)
 # make EF scale as factors
 level_fat$mag <- factor(level_fat$mag, c("0","1","2","3","4","5"))

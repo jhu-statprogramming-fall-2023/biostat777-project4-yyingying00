@@ -5,7 +5,7 @@ account: yyingying00
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 10821609
-bundleId: 8062659
+bundleId: 8063087
 url: https://yyingying00.shinyapps.io/ustornado/
 version: 1
 asMultiple: FALSE
