@@ -33,18 +33,22 @@ data <- tornados
 
 ## Column {data-width="300"}
 
-### **Purpose**
+### **Purpose** 
 
 This dashboard was created for two purposes: 
 
 1. To understand the tornado trends happened through the years from 1950 to 2021
 
-2. To practice building dashboards with **Shiny** using **R** for the BSPH course Statistical Programming Paradigms and Workflows (140.777)   
+2. To practice building dashboards with **Shiny** and **flexdashboard** 
 
 ### **Data source**
 
 The source data comes from NOAA's National Weather Service Storm Prediction Center [Severe Weather Maps, Graphics, and Data Page](https://www.spc.noaa.gov/wcm/#data), The data dictionary can be found [here](https://github.com/rfordatascience/tidytuesday/blob/master/data/2023/2023-05-16/readme.md).
 
+### **Author**
+
+This dashboard was made by Yingying Yu, the source code can be found [here](https://github.com/jhu-statprogramming-fall-2023/biostat777-project4-yyingying00)
+   
 ## Column {data-width="700"}
 
 ### **A video explaining this dashboard**
@@ -406,17 +410,6 @@ ggplot(yearly_tornado, aes(yr, n)) +
 ```
 
 We can see that there is a gradually increasing trend of number of tornadoes as years increase. Is this trend similar in the top 4 cities having most tornadoes?  
-
-```{r}
-# Summarise number of tornadoes by state
-tornadoes_st <- data %>%
-  group_by(st) %>%
-  summarise(value = n()) %>%
-  arrange(desc(value))
-
-renderDataTable({
-  datatable(tornadoes_st)})
-```
 
 Texas by a clear margin saw the most tornadoes in this timeframe. Kansas, Oklahoma, and Florida round out the top four. 
 
